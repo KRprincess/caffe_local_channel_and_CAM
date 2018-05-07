@@ -93,6 +93,11 @@ class BaseConvolutionLayer : public Layer<Dtype> {
   bool is_1x1_;
   bool force_nd_im2col_;
 
+  //Add new parameters for local-channel convolution
+  bool force_local_channel_;
+  int pad_c_;
+  bool share_weights_per_round_;
+
  private:
   // wrap im2col/col2im so we don't have to remember the (long) argument lists
   inline void conv_im2col_cpu(const Dtype* data, Dtype* col_buff) {
@@ -100,7 +105,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
       im2col_cpu(data, conv_in_channels_,
           conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
           kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
+		  pad_.cpu_data()[0], pad_.cpu_data()[1], pad_c_,
           stride_.cpu_data()[0], stride_.cpu_data()[1],
           dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
     } else {
@@ -114,7 +119,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
       col2im_cpu(col_buff, conv_in_channels_,
           conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
           kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
+		  pad_.cpu_data()[0], pad_.cpu_data()[1], pad_c_,
           stride_.cpu_data()[0], stride_.cpu_data()[1],
           dilation_.cpu_data()[0], dilation_.cpu_data()[1], data);
     } else {
@@ -129,7 +134,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
       im2col_gpu(data, conv_in_channels_,
           conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
           kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
+		  pad_.cpu_data()[0], pad_.cpu_data()[1], pad_c_,
           stride_.cpu_data()[0], stride_.cpu_data()[1],
           dilation_.cpu_data()[0], dilation_.cpu_data()[1], col_buff);
     } else {
@@ -144,7 +149,7 @@ class BaseConvolutionLayer : public Layer<Dtype> {
       col2im_gpu(col_buff, conv_in_channels_,
           conv_input_shape_.cpu_data()[1], conv_input_shape_.cpu_data()[2],
           kernel_shape_.cpu_data()[0], kernel_shape_.cpu_data()[1],
-          pad_.cpu_data()[0], pad_.cpu_data()[1],
+		  pad_.cpu_data()[0], pad_.cpu_data()[1], pad_c_,
           stride_.cpu_data()[0], stride_.cpu_data()[1],
           dilation_.cpu_data()[0], dilation_.cpu_data()[1], data);
     } else {

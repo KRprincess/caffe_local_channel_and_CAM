@@ -11,6 +11,9 @@ import argparse
 import glob
 import time
 
+import pandas as pd
+from skimage.color import rgb2gray
+
 import caffe
 
 
@@ -31,13 +34,13 @@ def main(argv):
     parser.add_argument(
         "--model_def",
         default=os.path.join(pycaffe_dir,
-                "../models/bvlc_reference_caffenet/deploy.prototxt"),
+                "../test_img/VGG16_deploy.prototxt"),
         help="Model definition file."
     )
     parser.add_argument(
         "--pretrained_model",
         default=os.path.join(pycaffe_dir,
-                "../models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel"),
+                "../test_img/VGG16.v2.caffemodel"),
         help="Trained model weights file."
     )
     parser.add_argument(
@@ -53,7 +56,7 @@ def main(argv):
     )
     parser.add_argument(
         "--images_dim",
-        default='256,256',
+        default='224,224',
         help="Canonical 'height,width' dimensions of input images."
     )
     parser.add_argument(
@@ -86,16 +89,42 @@ def main(argv):
         help="Image file extension to take as input when a directory " +
              "is given as the input file."
     )
+    
+    # add by caisenchuan
+    parser.add_argument(
+        "--labels_file",
+        default=os.path.join(pycaffe_dir,
+                "../test_img/synset_words.txt"),
+        help="Readable label definition file."
+    )
+    parser.add_argument(
+        "--print_results",
+        action='store_true',
+        help="Write output text to stdout rather than serializing to a file."
+    )
+    parser.add_argument(
+        "--force_grayscale",
+        action='store_true',
+        help="Converts RGB images down to single-channel grayscale versions," +
+             "useful for single-channel networks like MNIST."
+    )
+    
     args = parser.parse_args()
 
     image_dims = [int(s) for s in args.images_dim.split(',')]
 
     mean, channel_swap = None, None
-    if args.mean_file:
-        mean = np.load(args.mean_file)
-    if args.channel_swap:
-        channel_swap = [int(s) for s in args.channel_swap.split(',')]
-
+    
+    # add by caisenchuan
+    if args.force_grayscale:
+      channel_swap = None
+      mean = None
+    else:
+        if args.mean_file:
+            mean = np.load(args.mean_file)
+        if args.channel_swap:
+            channel_swap = [int(s) for s in args.channel_swap.split(',')]
+    
     if args.gpu:
         caffe.set_mode_gpu()
         print("GPU mode")
@@ -121,13 +150,40 @@ def main(argv):
     else:
         print("Loading file: %s" % args.input_file)
         inputs = [caffe.io.load_image(args.input_file)]
-
+    
+    if args.force_grayscale:
+      inputs = [rgb2gray(input) for input in inputs];
+    
     print("Classifying %d inputs." % len(inputs))
 
     # Classify.
     start = time.time()
     predictions = classifier.predict(inputs, not args.center_only)
     print("Done in %.2f s." % (time.time() - start))
+    print("Predictions : %s" % predictions)
+
+    # print result, add by caisenchuan
+    if args.print_results:
+        scores = predictions.flatten()
+        with open(args.labels_file) as f:
+            labels_df = pd.DataFrame([
+                    {
+                        'synset_id': l.strip().split(' ')[0],
+                        'name': ' '.join(l.strip().split(' ')[1:]).split(',')[0]
+                    }
+                    for l in f.readlines()
+                ])
+            labels = labels_df.sort_values('synset_id')['name']
+
+            indices = (-scores).argsort()[:5]
+            ps = labels[indices]
+
+            meta = [
+                (p, '%.5f' % scores[i])
+                for i, p in zip(indices, ps)
+            ]
+
+            print meta
 
     # Save
     print("Saving results into %s" % args.output_file)
